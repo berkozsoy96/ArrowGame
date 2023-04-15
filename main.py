@@ -7,23 +7,14 @@ import random
 
 
 class Tile(Sprite):
-    _possible_values = [0, 1, 2, 3]
-    _colors = {
-        "0": pygame.Color(10, 10, 10),
-        "1": pygame.Color(25, 25, 25),
-        "2": pygame.Color(50, 50, 50),
-        "3": pygame.Color(75, 75, 75),
-        "4": pygame.Color(100, 100, 100),
-        "5": pygame.Color(125, 125, 125)
-    }
-
-    def __init__(self, size: int, margin: int, position: tuple[int, int], *groups: AbstractGroup) -> None:
+    def __init__(self, size: int, margin: int, position: tuple[int, int], value_count: int, *groups: AbstractGroup) -> None:
         super().__init__(*groups)
         self.size = size
         self.margin = margin
         self.position = position  # row, col (y, x)
-        self.value = random.choice(Tile._possible_values)
-        self.color = Tile._colors[str(self.value)]
+        self.value_count = value_count
+        self.value = random.randint(0, self.value_count-1)
+        self.color_value = 50*((self.value+1)/self.value_count)
         self.neighbours: list[Tile] = []
         self.font = Font(None, 36)
 
@@ -40,18 +31,20 @@ class Tile(Sprite):
         return f"Tile at {self.position} with value {self.value}"
 
     def __repr__(self):
-        return f"Tile at {self.position} with value {self.value}"
+        return f"{self.value}"
 
     def update_image(self):
         text_surface = self.font.render(
             str(self.value+1), True, pygame.Color(255, 255, 255))
-        self.image.fill(self.color)
+        c = pygame.Color(0, 0, 0)
+        c.hsva = (0.0, 0.0, self.color_value, 1.0)
+        self.image.fill(c)
         self.image.blit(text_surface, Rect(37, 37, 13, 24))
 
     def change_value(self):
         self.value += 1
-        self.value %= len(Tile._possible_values)
-        self.color = Tile._colors[str(self.value)]
+        self.value %= self.value_count
+        self.color_value = 50*((self.value+1)/self.value_count)
 
     def update(self, mouse_pos):
         # mouse_pos -> x, y
@@ -65,33 +58,37 @@ class Tile(Sprite):
 
 
 class Game:
-    def __init__(self) -> None:
+    def __init__(self, grid_size, value_count) -> None:
         pygame.init()
 
-        self.window_size = (410, 410)
+        self.grid_size = grid_size
+        self.value_count = value_count
+        self.cell_size = 90
+        self.cell_margin = 10
+
+        ws = self.grid_size * \
+            (self.cell_size+self.cell_margin) + self.cell_margin
+        self.window_size = (ws, ws)
         self.screen = pygame.display.set_mode(self.window_size)
         pygame.display.set_caption("Arrow Puzzle")
         self.font = Font(None, 36)
         self.bg_color = pygame.Color(68, 70, 84)
 
-        self.grid_size = 4
-        self.cell_size = 90
-        self.cell_margin = 10
-
+        self.grid: list[list[Tile]] = []
         self.board = Group()
         self.create_board()
 
     def create_board(self):
-        grid: list[list[Tile]] = []
         for i in range(self.grid_size):
             row: list[Tile] = []
             for j in range(self.grid_size):
-                row.append(Tile(self.cell_size, self.cell_margin, (i, j)))
+                row.append(Tile(self.cell_size, self.cell_margin,
+                           (i, j), self.value_count))
                 # self.board.add(Tile(self.cell_size, self.cell_margin, (i, j)))
-            grid.append(row)
-
+            self.grid.append(row)
         for i in range(self.grid_size):
             for j in range(self.grid_size):
+                current_tile = self.grid[i][j]
                 for m in range(-1, 2):
                     if not (0 <= i + m < self.grid_size):
                         continue
@@ -100,8 +97,9 @@ class Game:
                             continue
                         if m == 0 and n == 0:
                             continue
-                        grid[i][j].neighbours.append(grid[i + m][j + n])
-                self.board.add(grid[i][j])
+                        neighbour_tile = self.grid[i + m][j + n]
+                        current_tile.neighbours.append(neighbour_tile)
+                self.board.add(current_tile)
 
     def check_win(self):
         for tile in self.board.sprites():
@@ -119,6 +117,7 @@ class Game:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = pygame.mouse.get_pos()
                     self.board.update(pos)
+                    # print(self.grid)
 
             # Clear the screen
             self.screen.fill(self.bg_color)
@@ -140,5 +139,5 @@ class Game:
 
 
 if __name__ == "__main__":
-    game = Game()
+    game = Game(grid_size=6, value_count=2)
     game.main_loop()
