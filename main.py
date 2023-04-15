@@ -46,15 +46,18 @@ class Tile(Sprite):
         self.value %= self.value_count
         self.color_value = 50*((self.value+1)/self.value_count)
 
+    def rotate_tile(self):
+        self.change_value()
+        self.update_image()
+
+        for neighbour in self.neighbours:
+            neighbour.change_value()
+            neighbour.update_image()
+
     def update(self, mouse_pos):
         # mouse_pos -> x, y
         if self.rect.left <= mouse_pos[0] <= self.rect.right and self.rect.top <= mouse_pos[1] <= self.rect.bottom:
-            self.change_value()
-            self.update_image()
-
-            for neighbour in self.neighbours:
-                neighbour.change_value()
-                neighbour.update_image()
+            self.rotate_tile()
 
 
 class Game:
@@ -137,7 +140,27 @@ class Game:
 
         pygame.quit()
 
+    def _draw(func):
+        def inner(self: "Game", *args):
+            pygame.event.pump()
+            func(self, *args)
+            self.screen.fill(self.bg_color)
+            self.board.draw(self.screen)
+            pygame.display.flip()
+        return inner
+
+    @_draw
+    def start_drawing(self, *args):
+        pass
+
+    @_draw
+    def click(self, x: int, y: int):
+        self.grid[x][y].rotate_tile()
+
+    def quit(self):
+        pygame.quit()
+
 
 if __name__ == "__main__":
-    game = Game(grid_size=6, value_count=2)
+    game = Game(grid_size=4, value_count=4)
     game.main_loop()
