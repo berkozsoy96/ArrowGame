@@ -1,4 +1,5 @@
 import pygame
+import numpy as np
 from pygame import Rect
 from pygame.font import Font
 from pygame.sprite import Sprite, AbstractGroup, Group
@@ -78,8 +79,11 @@ class Game:
         self.bg_color = pygame.Color(68, 70, 84)
 
         self.grid: list[list[Tile]] = []
+        self.click_counts = np.ndarray(shape=(4, 4), dtype=np.int8)
+        self.click_counts.fill(0)
         self.board = Group()
         self.create_board()
+        self.starting_grid = self.grid.copy()
 
     def create_board(self):
         for i in range(self.grid_size):
@@ -105,6 +109,7 @@ class Game:
                 self.board.add(current_tile)
 
     def check_win(self):
+        pygame.event.pump()
         for tile in self.board.sprites():
             tile: Tile
             if tile.value != 0:
@@ -156,6 +161,14 @@ class Game:
     @_draw
     def click(self, x: int, y: int):
         self.grid[x][y].rotate_tile()
+        self.click_counts[x, y] += 1
+
+    def pause(self):
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    running = False
 
     def quit(self):
         pygame.quit()
