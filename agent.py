@@ -2,7 +2,13 @@ import game
 import numpy as np
 
 
-mygame = game.Game(grid_size=4, value_count=4)
+my_grid = [
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [1, 1, 1, 0]
+]
+mygame = game.Game(grid_size=4, value_count=4, initial_grid=my_grid)
 mygame.start_drawing()
 print(np.array(mygame.starting_grid, dtype=game.Tile))
 click_count = 0

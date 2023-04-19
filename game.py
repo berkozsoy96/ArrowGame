@@ -8,13 +8,13 @@ import random
 
 
 class Tile(Sprite):
-    def __init__(self, size: int, margin: int, position: tuple[int, int], value_count: int, *groups: AbstractGroup) -> None:
+    def __init__(self, size: int, margin: int, position: tuple[int, int], value_count: int, *groups: AbstractGroup, value=None) -> None:
         super().__init__(*groups)
         self.size = size
         self.margin = margin
         self.position = position  # row, col (y, x)
         self.value_count = value_count
-        self.value = random.randint(0, self.value_count-1)
+        self.value = value if value is not None else random.randint(0, self.value_count-1)
         self.color_value = 50*((self.value+1)/self.value_count)
         self.neighbours: list[Tile] = []
         self.font = Font(None, 36)
@@ -59,10 +59,12 @@ class Tile(Sprite):
         # mouse_pos -> x, y
         if self.rect.left <= mouse_pos[0] <= self.rect.right and self.rect.top <= mouse_pos[1] <= self.rect.bottom:
             self.rotate_tile()
+            return True
+        return False
 
 
 class Game:
-    def __init__(self, grid_size, value_count) -> None:
+    def __init__(self, grid_size, value_count, initial_grid: list[list[int]] = None) -> None:
         pygame.init()
 
         self.grid_size = grid_size
@@ -81,17 +83,15 @@ class Game:
         self.grid: list[list[Tile]] = []
         self.click_counts = np.ndarray(shape=(4, 4), dtype=np.int8)
         self.click_counts.fill(0)
-        self.board = Group()
-        self.create_board()
+        self.create_board(initial_grid)
         self.starting_grid = self.grid.copy()
 
-    def create_board(self):
+    def create_board(self, initial_grid = None):
         for i in range(self.grid_size):
             row: list[Tile] = []
             for j in range(self.grid_size):
                 row.append(Tile(self.cell_size, self.cell_margin,
-                           (i, j), self.value_count))
-                # self.board.add(Tile(self.cell_size, self.cell_margin, (i, j)))
+                           (i, j), self.value_count, value=initial_grid[i][j] if initial_grid else None))
             self.grid.append(row)
         for i in range(self.grid_size):
             for j in range(self.grid_size):
@@ -106,14 +106,13 @@ class Game:
                             continue
                         neighbour_tile = self.grid[i + m][j + n]
                         current_tile.neighbours.append(neighbour_tile)
-                self.board.add(current_tile)
 
     def check_win(self):
         pygame.event.pump()
-        for tile in self.board.sprites():
-            tile: Tile
-            if tile.value != 0:
-                return False
+        for row in self.grid:
+            for tile in row:
+                if tile.value != 0:
+                    return False
         return True
 
     def main_loop(self):
@@ -124,12 +123,14 @@ class Game:
                     running = False
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = pygame.mouse.get_pos()
-                    self.board.update(pos)
-                    # print(self.grid)
+                    for i, row in enumerate(self.grid):
+                        for j, tile in enumerate(row):
+                            if tile.update(pos):
+                                self.click_counts[i][j] += 1
 
             # Clear the screen
             self.screen.fill(self.bg_color)
-            self.board.draw(self.screen)
+            self.screen.blits([(tile.image, tile.rect) for row in self.grid for tile in row])
 
             # Check if the game has been won
             if self.check_win():
@@ -138,7 +139,7 @@ class Game:
                 text_rect = text.get_rect(
                     center=(self.window_size[0] // 2, self.window_size[1] // 2))
                 self.screen.blit(text, text_rect)
-                self.board = Group()
+                self.grid = []
 
             # Update the screen
             pygame.display.flip()
@@ -150,7 +151,7 @@ class Game:
             pygame.event.pump()
             func(self, *args)
             self.screen.fill(self.bg_color)
-            self.board.draw(self.screen)
+            self.screen.blits([(tile.image, tile.rect) for row in self.grid for tile in row])
             pygame.display.flip()
         return inner
 
@@ -161,7 +162,7 @@ class Game:
     @_draw
     def click(self, x: int, y: int):
         self.grid[x][y].rotate_tile()
-        self.click_counts[x, y] += 1
+        self.click_counts[x][y] += 1
 
     def pause(self):
         running = True
@@ -175,5 +176,16 @@ class Game:
 
 
 if __name__ == "__main__":
-    game = Game(grid_size=4, value_count=4)
-    game.main_loop()
+    my_grid = [
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [1, 1, 1, 0]
+    ]
+    mygame = Game(grid_size=4, value_count=4, initial_grid=my_grid)
+    mygame.main_loop()
+    print(np.array(mygame.starting_grid, dtype=mygame.Tile))
+    print(f"click_count: {np.sum(mygame.click_counts)}")
+    print(mygame.click_counts)
+    print(np.sum(mygame.click_counts%mygame.value_count))
+    print(mygame.click_counts%mygame.value_count)
